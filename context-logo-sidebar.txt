@@ -1,0 +1,876 @@
+]633;E;{     echo "=================================================="\x3b     echo "CONTEXT PEMERIKSAAN LOGO SIDEBAR"\x3b     echo "=================================================="\x3b      files=(         "app/Helpers/AppSetting.php"         "app/Http/Controllers/Admin/SettingController.php"         "app/Models/Setting.php"         "config/filesystems.php"         "routes/web.php"     )\x3b      for file in "${files[@]}"\x3b do         if [ -f "$file" ]\x3b then             echo ""\x3b             echo ""\x3b             echo "=================================================="\x3b             echo "FILE: $file"\x3b             echo "=================================================="\x3b             cat "$file"\x3b         else             echo ""\x3b             echo "FILE TIDAK DITEMUKAN: $file"\x3b         fi\x3b     done\x3b      echo ""\x3b     echo ""\x3b     echo "=================================================="\x3b     echo "FILE BLADE YANG MENGANDUNG SIDEBAR"\x3b     echo "=================================================="\x3b      grep -rl '<aside class="w-72' resources/views         --include="*.blade.php" 2>/dev/null |     while IFS= read -r file\x3b do         echo ""\x3b         echo ""\x3b         echo "=================================================="\x3b         echo "FILE: $file"\x3b         echo "=================================================="\x3b         cat "$file"\x3b     done\x3b  } > context-logo-sidebar.txt;10e382fa-9ffc-44bc-918a-19db870352e1]633;C==================================================
+CONTEXT PEMERIKSAAN LOGO SIDEBAR
+==================================================
+
+
+==================================================
+FILE: app/Helpers/AppSetting.php
+==================================================
+<?php
+
+namespace App\Helpers;
+
+use App\Models\Setting;
+use Illuminate\Support\Facades\Cache;
+
+class AppSetting
+{
+    public static function get(string $key, mixed $default = null): mixed
+    {
+        return Cache::rememberForever("setting_{$key}", function () use ($key, $default) {
+            return Setting::getValue($key, $default);
+        });
+    }
+
+    public static function appName(): string
+    {
+        return self::get('app_name', 'Al Ishlah Pay');
+    }
+
+    public static function pondokName(): string
+    {
+        return self::get('pondok_name', 'Ponpes Al Ishlah Jatireja - Subang');
+    }
+
+    public static function address(): ?string
+    {
+        return self::get('address');
+    }
+
+    public static function phone(): ?string
+    {
+        return self::get('phone');
+    }
+
+    public static function email(): ?string
+    {
+        return self::get('email');
+    }
+
+    public static function footerText(): string
+    {
+        return self::get('footer_text', '© Al Ishlah Pay');
+    }
+
+    public static function logo(): ?string
+    {
+        $logo = self::get('logo');
+
+        return $logo ? asset('storage/' . $logo) : null;
+    }
+
+    public static function favicon(): ?string
+    {
+        $favicon = self::get('favicon');
+
+        return $favicon ? asset('storage/' . $favicon) : null;
+    }
+
+    public static function clearCache(): void
+    {
+        foreach ([
+            'app_name',
+            'pondok_name',
+            'address',
+            'phone',
+            'email',
+            'footer_text',
+            'logo',
+            'favicon',
+        ] as $key) {
+            Cache::forget("setting_{$key}");
+        }
+    }
+}
+
+
+==================================================
+FILE: app/Http/Controllers/Admin/SettingController.php
+==================================================
+<?php
+
+namespace App\Http\Controllers\Admin;
+
+use App\Helpers\AppSetting;
+use App\Http\Controllers\Controller;
+use App\Models\Setting;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
+
+class SettingController extends Controller
+{
+    public function edit()
+    {
+        $settings = Setting::query()
+            ->pluck('value', 'key')
+            ->toArray();
+
+        return view('admin.setting.edit', compact('settings'));
+    }
+
+    public function update(Request $request)
+    {
+        $validated = $request->validate([
+            'app_name' => ['required', 'string', 'max:100'],
+            'pondok_name' => ['required', 'string', 'max:150'],
+            'address' => ['nullable', 'string'],
+            'phone' => ['nullable', 'string', 'max:50'],
+            'email' => ['nullable', 'email', 'max:100'],
+            'footer_text' => ['nullable', 'string', 'max:255'],
+            'logo' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp', 'max:2048'],
+            'favicon' => ['nullable', 'image', 'mimes:png,jpg,jpeg,webp,ico', 'max:1024'],
+        ]);
+
+        Setting::setValue('app_name', $validated['app_name']);
+        Setting::setValue('pondok_name', $validated['pondok_name']);
+        Setting::setValue('address', $validated['address'] ?? null);
+        Setting::setValue('phone', $validated['phone'] ?? null);
+        Setting::setValue('email', $validated['email'] ?? null);
+        Setting::setValue('footer_text', $validated['footer_text'] ?? null);
+
+        if ($request->hasFile('logo')) {
+            $oldLogo = Setting::getValue('logo');
+
+            if ($oldLogo && Storage::disk('public')->exists($oldLogo)) {
+                Storage::disk('public')->delete($oldLogo);
+            }
+
+            $logoPath = $request->file('logo')->store('settings', 'public');
+            Setting::setValue('logo', $logoPath);
+        }
+
+        if ($request->hasFile('favicon')) {
+            $oldFavicon = Setting::getValue('favicon');
+
+            if ($oldFavicon && Storage::disk('public')->exists($oldFavicon)) {
+                Storage::disk('public')->delete($oldFavicon);
+            }
+
+            $faviconPath = $request->file('favicon')->store('settings', 'public');
+            Setting::setValue('favicon', $faviconPath);
+        }
+        AppSetting::clearCache();
+        return redirect()
+            ->route('admin.setting.edit')
+            ->with('success', 'Pengaturan sistem berhasil diperbarui.');
+    }
+}
+
+
+==================================================
+FILE: app/Models/Setting.php
+==================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class Setting extends Model
+{
+    protected $fillable = [
+        'key',
+        'value',
+    ];
+
+    public static function getValue(string $key, mixed $default = null): mixed
+    {
+        return static::where('key', $key)->value('value') ?? $default;
+    }
+
+    public static function setValue(string $key, mixed $value): void
+    {
+        static::updateOrCreate(
+            ['key' => $key],
+            ['value' => $value]
+        );
+    }
+}
+
+
+==================================================
+FILE: config/filesystems.php
+==================================================
+<?php
+
+return [
+
+    /*
+    |--------------------------------------------------------------------------
+    | Default Filesystem Disk
+    |--------------------------------------------------------------------------
+    |
+    | Here you may specify the default filesystem disk that should be used
+    | by the framework. The "local" disk, as well as a variety of cloud
+    | based disks are available to your application for file storage.
+    |
+    */
+
+    'default' => env('FILESYSTEM_DISK', 'local'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Filesystem Disks
+    |--------------------------------------------------------------------------
+    |
+    | Below you may configure as many filesystem disks as necessary, and you
+    | may even configure multiple disks for the same driver. Examples for
+    | most supported storage drivers are configured here for reference.
+    |
+    | Supported drivers: "local", "ftp", "sftp", "s3"
+    |
+    */
+
+    'disks' => [
+
+        'local' => [
+            'driver' => 'local',
+            'root' => storage_path('app/private'),
+            'serve' => true,
+            'throw' => false,
+            'report' => false,
+        ],
+
+        'public' => [
+            'driver' => 'local',
+            'root' => storage_path('app/public'),
+            'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+            'visibility' => 'public',
+            'throw' => false,
+            'report' => false,
+        ],
+
+        's3' => [
+            'driver' => 's3',
+            'key' => env('AWS_ACCESS_KEY_ID'),
+            'secret' => env('AWS_SECRET_ACCESS_KEY'),
+            'region' => env('AWS_DEFAULT_REGION'),
+            'bucket' => env('AWS_BUCKET'),
+            'url' => env('AWS_URL'),
+            'endpoint' => env('AWS_ENDPOINT'),
+            'use_path_style_endpoint' => env('AWS_USE_PATH_STYLE_ENDPOINT', false),
+            'throw' => false,
+            'report' => false,
+        ],
+
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Symbolic Links
+    |--------------------------------------------------------------------------
+    |
+    | Here you may configure the symbolic links that will be created when the
+    | `storage:link` Artisan command is executed. The array keys should be
+    | the locations of the links and the values should be their targets.
+    |
+    */
+
+    'links' => [
+        public_path('storage') => storage_path('app/public'),
+    ],
+
+];
+
+
+==================================================
+FILE: routes/web.php
+==================================================
+<?php
+
+use App\Http\Controllers\Admin\AsramaController;
+use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\ExportController;
+use App\Http\Controllers\Admin\JenisPembayaranController;
+use App\Http\Controllers\Admin\KasTransactionController;
+use App\Http\Controllers\Admin\KelasController;
+use App\Http\Controllers\Admin\LaporanController;
+use App\Http\Controllers\Admin\PembayaranController;
+use App\Http\Controllers\Admin\RolePermissionController;
+use App\Http\Controllers\Admin\SantriController;
+use App\Http\Controllers\Admin\SantriImportController;
+use App\Http\Controllers\Admin\SettingController;
+use App\Http\Controllers\Admin\TagihanController;
+use App\Http\Controllers\Admin\TahunAjaranController;
+use App\Http\Controllers\Admin\UserController;
+use App\Http\Controllers\Admin\WaliSantriController;
+use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\Wali\DashboardController as WaliDashboardController;
+use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\Admin\KonfirmasiPembayaranController;
+use App\Http\Controllers\Wali\KonfirmasiPembayaranController as WaliKonfirmasiPembayaranController;
+use App\Http\Controllers\Wali\TagihanController as WaliTagihanController;
+use App\Http\Controllers\Wali\RiwayatPembayaranController as WaliRiwayatPembayaranController;
+
+
+
+Route::get('/', function () {
+    return redirect()->route('login');
+});
+
+Route::middleware(['auth', 'verified', 'role:Super Admin|Pengurus'])
+    ->prefix('admin')
+    ->name('admin.')
+    ->group(function () {
+
+        Route::get('/dashboard', [DashboardController::class, 'index'])
+            ->middleware('permission:dashboard.view')
+            ->name('dashboard');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Santri Import - harus sebelum Route::resource('santri')
+        |--------------------------------------------------------------------------
+        */
+        Route::get('santri/import', [SantriImportController::class, 'create'])
+            ->name('santri.import')
+            ->middleware('permission:santri.create');
+
+        Route::post('santri/import', [SantriImportController::class, 'store'])
+            ->name('santri.import.store')
+            ->middleware('permission:santri.create');
+
+        Route::get('santri/import/template', [SantriImportController::class, 'template'])
+            ->name('santri.import.template')
+            ->middleware('permission:santri.create');
+
+        Route::resource('santri', SantriController::class)
+            ->middleware('permission:santri.view');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Master Data
+        |--------------------------------------------------------------------------
+        */
+        Route::resource('kelas', KelasController::class)
+            ->except(['show'])
+            ->middleware('permission:kelas.view');
+
+        Route::resource('asrama', AsramaController::class)
+            ->except(['show'])
+            ->middleware('permission:asrama.view');
+
+        Route::resource('tahun-ajaran', TahunAjaranController::class)
+            ->parameters(['tahun-ajaran' => 'tahunAjaran'])
+            ->except(['show'])
+            ->middleware('permission:tahun-ajaran.view');
+
+        Route::resource('jenis-pembayaran', JenisPembayaranController::class)
+            ->parameters(['jenis-pembayaran' => 'jenisPembayaran'])
+            ->except(['show'])
+            ->middleware('permission:jenis-pembayaran.view');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Wali Santri
+        |--------------------------------------------------------------------------
+        */
+        Route::get('wali-santri', [WaliSantriController::class, 'index'])
+            ->name('wali-santri.index')
+            ->middleware('permission:wali-santri.view');
+
+        Route::get('wali-santri/{santri}/edit', [WaliSantriController::class, 'edit'])
+            ->name('wali-santri.edit')
+            ->middleware('permission:wali-santri.update');
+
+        Route::put('wali-santri/{santri}', [WaliSantriController::class, 'update'])
+            ->name('wali-santri.update')
+            ->middleware('permission:wali-santri.update');
+
+        Route::get('konfirmasi-pembayaran', [KonfirmasiPembayaranController::class, 'index'])
+            ->name('konfirmasi-pembayaran.index')
+            ->middleware('permission:pembayaran.view');
+
+        Route::get('konfirmasi-pembayaran/{konfirmasiPembayaran}', [KonfirmasiPembayaranController::class, 'show'])
+            ->name('konfirmasi-pembayaran.show')
+            ->middleware('permission:pembayaran.view');
+
+        Route::patch('konfirmasi-pembayaran/{konfirmasiPembayaran}/approve', [KonfirmasiPembayaranController::class, 'approve'])
+            ->name('konfirmasi-pembayaran.approve')
+            ->middleware('permission:pembayaran.create');
+
+        Route::patch('konfirmasi-pembayaran/{konfirmasiPembayaran}/reject', [KonfirmasiPembayaranController::class, 'reject'])
+            ->name('konfirmasi-pembayaran.reject')
+            ->middleware('permission:pembayaran.create');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Keuangan
+        |--------------------------------------------------------------------------
+        */
+        Route::resource('tagihan', TagihanController::class)
+            ->middleware('permission:tagihan.view');
+
+        Route::get('pembayaran/{pembayaran}/struk', [PembayaranController::class, 'struk'])
+            ->name('pembayaran.struk')
+            ->middleware('permission:pembayaran.view');
+
+        Route::resource('pembayaran', PembayaranController::class)
+            ->middleware('permission:pembayaran.view');
+
+        Route::resource('kas', KasTransactionController::class)
+            ->parameters(['kas' => 'kasTransaction'])
+            ->except(['show'])
+            ->middleware('permission:kas.view');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Laporan
+        |--------------------------------------------------------------------------
+        */
+        Route::get('laporan/tunggakan', [LaporanController::class, 'tunggakan'])
+            ->name('laporan.tunggakan')
+            ->middleware('permission:laporan.view');
+
+        Route::get('laporan/tunggakan/print', [LaporanController::class, 'printTunggakan'])
+            ->name('laporan.tunggakan.print')
+            ->middleware('permission:laporan.export');
+
+        Route::get('laporan/kartu-santri', [LaporanController::class, 'kartuSantri'])
+            ->name('laporan.kartu-santri')
+            ->middleware('permission:laporan.view');
+
+        Route::get('laporan/kartu-santri/{santri}/print', [LaporanController::class, 'printKartuSantri'])
+            ->name('laporan.kartu-santri.print')
+            ->middleware('permission:laporan.export');
+
+        Route::get('laporan/print', [LaporanController::class, 'print'])
+            ->name('laporan.print')
+            ->middleware('permission:laporan.export');
+
+        Route::get('laporan', [LaporanController::class, 'index'])
+            ->name('laporan.index')
+            ->middleware('permission:laporan.view');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Export Excel
+        |--------------------------------------------------------------------------
+        */
+        Route::get('export/santri', [ExportController::class, 'santri'])
+            ->name('export.santri')
+            ->middleware('permission:laporan.export');
+
+        Route::get('export/tagihan', [ExportController::class, 'tagihan'])
+            ->name('export.tagihan')
+            ->middleware('permission:laporan.export');
+
+        Route::get('export/pembayaran', [ExportController::class, 'pembayaran'])
+            ->name('export.pembayaran')
+            ->middleware('permission:laporan.export');
+
+        Route::get('export/kas', [ExportController::class, 'kas'])
+            ->name('export.kas')
+            ->middleware('permission:laporan.export');
+
+        Route::get('export/tunggakan', [ExportController::class, 'tunggakan'])
+            ->name('export.tunggakan')
+            ->middleware('permission:laporan.export');
+
+        /*
+        |--------------------------------------------------------------------------
+        | User & Permission
+        |--------------------------------------------------------------------------
+        */
+        Route::resource('user', UserController::class)
+            ->except(['show'])
+            ->middleware('permission:user.view');
+
+        Route::get('role-permission', [RolePermissionController::class, 'index'])
+            ->name('role-permission.index')
+            ->middleware('role:Super Admin');
+
+        Route::get('role-permission/{role}/edit', [RolePermissionController::class, 'edit'])
+            ->name('role-permission.edit')
+            ->middleware('role:Super Admin');
+
+        Route::put('role-permission/{role}', [RolePermissionController::class, 'update'])
+            ->name('role-permission.update')
+            ->middleware('role:Super Admin');
+
+        /*
+        |--------------------------------------------------------------------------
+        | Setting
+        |--------------------------------------------------------------------------
+        */
+        Route::get('setting', [SettingController::class, 'edit'])
+            ->name('setting.edit')
+            ->middleware('permission:setting.manage');
+
+        Route::put('setting', [SettingController::class, 'update'])
+            ->name('setting.update')
+            ->middleware('permission:setting.manage');
+    });
+
+Route::middleware(['auth', 'verified', 'role:Wali Santri'])
+    ->prefix('wali')
+    ->name('wali.')
+    ->group(function () {
+        Route::get('/dashboard', [WaliDashboardController::class, 'index'])
+            ->name('dashboard');
+
+        Route::get('tagihan', [WaliTagihanController::class, 'index'])
+            ->name('tagihan.index');
+
+        Route::get('tagihan/{tagihan}', [WaliTagihanController::class, 'show'])
+            ->name('tagihan.show');
+
+        Route::get('pembayaran', [WaliRiwayatPembayaranController::class, 'index'])
+            ->name('pembayaran.index');
+
+        Route::get('konfirmasi-pembayaran', [WaliKonfirmasiPembayaranController::class, 'create'])
+            ->name('konfirmasi-pembayaran.create');
+
+        Route::post('konfirmasi-pembayaran', [WaliKonfirmasiPembayaranController::class, 'store'])
+            ->name('konfirmasi-pembayaran.store');
+
+        Route::get('konfirmasi-pembayaran/{konfirmasiPembayaran}', [WaliKonfirmasiPembayaranController::class, 'show'])
+            ->name('konfirmasi-pembayaran.show');
+    });
+
+Route::middleware('auth')->group(function () {
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+});
+
+require __DIR__ . '/auth.php';
+
+
+==================================================
+FILE BLADE YANG MENGANDUNG SIDEBAR
+==================================================
+
+
+==================================================
+FILE: resources/views/layouts/admin/partials/sidebar.blade.php
+==================================================
+<aside class="w-72 bg-emerald-800 text-white flex flex-col shadow-xl">
+
+    <div class="h-20 flex items-center px-6 border-b border-emerald-700">
+        <div class="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center overflow-hidden">
+            @if (\App\Helpers\AppSetting::logo())
+                <img src="{{ \App\Helpers\AppSetting::logo() }}" alt="Logo" class="w-full h-full object-contain p-1">
+            @else
+                <x-heroicon-o-building-library class="w-7 h-7 text-white" />
+            @endif
+        </div>
+
+        <div class="ml-3">
+            <h1 class="font-bold text-lg">
+                {{ \App\Helpers\AppSetting::appName() }}
+            </h1>
+            <p class="text-xs text-emerald-200">
+                {{ \App\Helpers\AppSetting::pondokName() }}
+            </p>
+        </div>
+    </div>
+
+    <div class="flex-1 overflow-y-auto py-5">
+
+        <p class="px-6 mb-3 text-xs uppercase tracking-widest text-emerald-300">
+            Dashboard
+        </p>
+
+        <a href="{{ route('admin.dashboard') }}"
+            class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.dashboard') }}">
+            <x-heroicon-o-home class="w-5 h-5" />
+            <span>Dashboard</span>
+        </a>
+
+        <p class="px-6 mt-6 mb-3 text-xs uppercase tracking-widest text-emerald-300">
+            Master Data
+        </p>
+
+        @can('santri.view')
+            <a href="{{ route('admin.santri.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.santri.*') }}">
+                <x-heroicon-o-academic-cap class="w-5 h-5" />
+                <span>Data Santri</span>
+            </a>
+        @endcan
+        @can('kelas.view')
+            <a href="{{ route('admin.kelas.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.kelas.*') }}">
+                <x-heroicon-o-building-office-2 class="w-5 h-5" />
+                <span>Data Kelas</span>
+            </a>
+        @endcan
+        @can('asrama.view')
+            <a href="{{ route('admin.asrama.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.asrama.*') }}">
+                <x-heroicon-o-building-office class="w-5 h-5" />
+                <span>Data Asrama</span>
+            </a>
+        @endcan
+
+        @can('tahun-ajaran.view')
+            <a href="{{ route('admin.tahun-ajaran.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.tahun-ajaran.*') }}">
+                <x-heroicon-o-calendar-days class="w-5 h-5" />
+                <span>Tahun Ajaran</span>
+            </a>
+        @endcan
+        @can('wali-santri.view')
+            @can('wali-santri.view')
+                <a href="{{ route('admin.wali-santri.index') }}"
+                    class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.wali-santri.*') }}">
+                    <x-heroicon-o-users class="w-5 h-5" />
+                    <span>Wali Santri</span>
+                </a>
+            @endcan
+        @endcan
+
+        <p class="px-6 mt-6 mb-3 text-xs uppercase tracking-widest text-emerald-300">
+            Keuangan
+        </p>
+
+        @can('jenis-pembayaran.view')
+            <a href="{{ route('admin.jenis-pembayaran.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.jenis-pembayaran.*') }}">
+                <x-heroicon-o-clipboard-document-list class="w-5 h-5" />
+                <span>Jenis Pembayaran</span>
+            </a>
+        @endcan
+        @can('tagihan.view')
+            <a href="{{ route('admin.tagihan.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.tagihan.*') }}">
+                <x-heroicon-o-document-text class="w-5 h-5" />
+                <span>Tagihan</span>
+            </a>
+        @endcan
+        @can('pembayaran.view')
+            <a href="{{ route('admin.pembayaran.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.pembayaran.*') }}">
+                <x-heroicon-o-credit-card class="w-5 h-5" />
+                <span>Pembayaran</span>
+            </a>
+        @endcan
+
+        @can('pembayaran.view')
+            <a href="{{ route('admin.konfirmasi-pembayaran.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.konfirmasi-pembayaran.*') }}">
+                <x-heroicon-o-check-badge class="w-5 h-5" />
+                <span>Konfirmasi Bayar</span>
+            </a>
+        @endcan
+        @can('laporan.view')
+            <a href="{{ route('admin.laporan.tunggakan') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.laporan.tunggakan*') }}">
+                <x-heroicon-o-exclamation-triangle class="w-5 h-5" />
+                <span>Tunggakan</span>
+            </a>
+        @endcan
+        @can('laporan.view')
+            <a href="{{ route('admin.laporan.kartu-santri') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.laporan.kartu-santri*') }}">
+                <x-heroicon-o-identification class="w-5 h-5" />
+                <span>Kartu Tagihan</span>
+            </a>
+        @endcan
+        @can('kas.view')
+            <a href="{{ route('admin.kas.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.kas.*') }}">
+                <x-heroicon-o-banknotes class="w-5 h-5" />
+                <span>Kas Pondok</span>
+            </a>
+        @endcan
+        @can('laporan.view')
+            <a href="{{ route('admin.laporan.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.laporan.*') }}">
+                <x-heroicon-o-chart-bar-square class="w-5 h-5" />
+                <span>Laporan</span>
+            </a>
+        @endcan
+
+        @role('Super Admin')
+            <p class="px-6 mt-6 mb-3 text-xs uppercase tracking-widest text-emerald-300">
+                Pengaturan
+            </p>
+
+            <a href="{{ route('admin.user.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.user.*') }}">
+                <x-heroicon-o-users class="w-5 h-5" />
+                <span>User</span>
+            </a>
+
+            <a href="{{ route('admin.role-permission.index') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.role-permission.*') }}">
+                <x-heroicon-o-shield-check class="w-5 h-5" />
+                <span>Role & Permission</span>
+            </a>
+
+            <a href="{{ route('admin.setting.edit') }}"
+                class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ \App\Helpers\Menu::active('admin.setting.*') }}">
+                <x-heroicon-o-cog-6-tooth class="w-5 h-5" />
+                <span>Pengaturan Sistem</span>
+            </a>
+        @endrole
+
+    </div>
+
+    <div class="border-t border-emerald-700 p-5">
+        <div class="flex items-center">
+            <div class="w-11 h-11 rounded-full bg-emerald-600 flex items-center justify-center">
+                <x-heroicon-o-user class="w-5 h-5" />
+            </div>
+
+            <div class="ml-3">
+                <p class="font-semibold text-sm">
+                    {{ Auth::user()->name }}
+                </p>
+
+                <p class="text-xs text-emerald-200">
+                    {{ Auth::user()->getRoleNames()->first() }}
+                </p>
+            </div>
+        </div>
+    </div>
+
+</aside>
+
+
+==================================================
+FILE: resources/views/layouts/wali/app.blade.php
+==================================================
+<!DOCTYPE html>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>@yield('title', 'Wali Santri') - {{ \App\Helpers\AppSetting::appName() }}</title>
+    @if (\App\Helpers\AppSetting::favicon())
+        <link rel="icon" href="{{ \App\Helpers\AppSetting::favicon() }}">
+    @endif
+
+    @vite(['resources/css/app.css', 'resources/js/app.js'])
+</head>
+
+<body class="bg-gray-100 font-sans antialiased">
+    <div class="min-h-screen flex">
+
+        <aside class="w-72 bg-emerald-800 text-white hidden md:flex md:flex-col shadow-xl">
+            <div class="h-20 flex items-center px-6 border-b border-emerald-700">
+                <div class="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center overflow-hidden">
+                    @if (\App\Helpers\AppSetting::logo())
+                        <img src="{{ \App\Helpers\AppSetting::logo() }}" alt="Logo"
+                            class="w-full h-full object-contain p-1">
+                    @else
+                        <x-heroicon-o-building-library class="w-7 h-7 text-white" />
+                    @endif
+                </div>
+
+                <div class="ml-3">
+                    <h1 class="font-bold text-lg">
+                        {{ \App\Helpers\AppSetting::appName() }}
+                    </h1>
+                    <p class="text-xs text-emerald-200">
+                        Portal Wali Santri
+                    </p>
+                </div>
+            </div>
+
+            <div class="flex-1 py-5">
+                <p class="px-6 mb-3 text-xs uppercase tracking-widest text-emerald-300">
+                    Menu Wali
+                </p>
+
+                <a href="{{ route('wali.dashboard') }}"
+                    class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('wali.dashboard') ? 'bg-emerald-700 text-white shadow-sm' : 'text-emerald-50 hover:bg-emerald-700/70' }}">
+                    <x-heroicon-o-home class="w-5 h-5" />
+                    <span>Dashboard</span>
+                </a>
+
+                <a href="{{ route('wali.tagihan.index') }}"
+                    class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('wali.tagihan.*') ? 'bg-emerald-700 text-white shadow-sm' : 'text-emerald-50 hover:bg-emerald-700/70' }}">
+                    <x-heroicon-o-document-text class="w-5 h-5" />
+                    <span>Tagihan Saya</span>
+                </a>
+
+                <a href="{{ route('wali.pembayaran.index') }}"
+                    class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('wali.pembayaran.*') ? 'bg-emerald-700 text-white shadow-sm' : 'text-emerald-50 hover:bg-emerald-700/70' }}">
+                    <x-heroicon-o-credit-card class="w-5 h-5" />
+                    <span>Riwayat Pembayaran</span>
+                </a>
+
+                <a href="{{ route('wali.konfirmasi-pembayaran.create') }}"
+                    class="mx-3 mb-2 flex items-center gap-3 px-4 py-3 rounded-xl {{ request()->routeIs('wali.konfirmasi-pembayaran.*') ? 'bg-emerald-700 text-white shadow-sm' : 'text-emerald-50 hover:bg-emerald-700/70' }}">
+                    <x-heroicon-o-cloud-arrow-up class="w-5 h-5" />
+                    <span>Upload Bukti Bayar</span>
+                </a>
+            </div>
+
+            <div class="border-t border-emerald-700 p-5">
+                <div class="flex items-center">
+                    <div class="w-11 h-11 rounded-full bg-emerald-600 flex items-center justify-center">
+                        <x-heroicon-o-user class="w-5 h-5" />
+                    </div>
+
+                    <div class="ml-3">
+                        <p class="font-semibold text-sm">
+                            {{ Auth::user()->name }}
+                        </p>
+
+                        <p class="text-xs text-emerald-200">
+                            {{ Auth::user()->getRoleNames()->first() }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="flex-1">
+            <header class="h-20 bg-white border-b flex items-center justify-between px-6">
+                <div>
+                    <h2 class="font-bold text-gray-800">
+                        @yield('title', 'Dashboard Wali')
+                    </h2>
+                    <p class="text-sm text-gray-500">
+                        Selamat datang, {{ Auth::user()->name }}
+                    </p>
+                </div>
+
+                <form method="POST" action="{{ route('logout') }}">
+                    @csrf
+
+                    <button class="px-4 py-2 rounded-xl bg-red-100 text-red-700 hover:bg-red-200">
+                        Logout
+                    </button>
+                </form>
+            </header>
+
+            <div class="p-6">
+                @yield('content')
+            </div>
+        </main>
+    </div>
+
+    @if (session('success'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'success',
+                    title: 'Berhasil',
+                    text: '{{ session('success') }}',
+                    timer: 2000,
+                    showConfirmButton: false
+                });
+            });
+        </script>
+    @endif
+
+    @if (session('error'))
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+                Swal.fire({
+                    icon: 'error',
+                    title: 'Gagal',
+                    text: '{{ session('error') }}',
+                });
+            });
+        </script>
+    @endif
+</body>
+
+</html>

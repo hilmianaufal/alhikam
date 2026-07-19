@@ -1,7 +1,7 @@
 <header class="bg-white border-b px-6 py-4 flex justify-between items-center">
     <div>
         <h2 class="font-semibold text-lg">@yield('title', 'Dashboard')</h2>
-        <p class="text-sm text-gray-500">Al Ishlah Jatireja - Subang</p>
+        <p class="text-sm text-gray-500">Ponpes Al Hikam</p>
     </div>
 
     <div class="flex items-center gap-4">

@@ -3,163 +3,444 @@
 @section('title', 'Pengaturan Sistem')
 
 @section('content')
-@php
-    $inputClass = 'block w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-emerald-500 focus:ring-emerald-500';
-    $labelClass = 'block text-sm font-medium text-gray-700 mb-2';
+    @php
+        $inputClass = 'block w-full rounded-xl border border-gray-300 px-4 py-3 text-sm focus:border-emerald-500 focus:ring-emerald-500';
+        $labelClass = 'mb-2 block text-sm font-semibold text-gray-700';
 
-    $logo = $settings['logo'] ?? null;
-    $favicon = $settings['favicon'] ?? null;
-@endphp
+        $logo = $settings['logo'] ?? null;
+        $favicon = $settings['favicon'] ?? null;
 
-<div class="space-y-6">
+        $logoUrl = \App\Helpers\AppSetting::storageUrl($logo);
+        $faviconUrl = \App\Helpers\AppSetting::storageUrl($favicon);
+    @endphp
 
-    <div class="bg-white rounded-2xl shadow-sm border p-6">
-        <h1 class="text-2xl font-bold text-gray-800">Pengaturan Sistem</h1>
-        <p class="text-sm text-gray-500 mt-1">
-            Ubah identitas aplikasi, informasi pondok, logo, dan favicon.
-        </p>
+    <div class="space-y-6">
+
+        <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+            <h1 class="text-2xl font-bold text-gray-800">
+                Pengaturan Sistem
+            </h1>
+
+            <p class="mt-1 text-sm text-gray-500">
+                Ubah identitas aplikasi, informasi pondok, logo, dan favicon.
+            </p>
+        </div>
+
+        @if ($errors->any())
+            <div class="rounded-2xl border border-red-200 bg-red-50 p-5">
+                <div class="flex items-start gap-3">
+                    <div class="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-red-100">
+                        <x-heroicon-o-exclamation-triangle class="h-5 w-5 text-red-600" />
+                    </div>
+
+                    <div>
+                        <h3 class="font-bold text-red-800">
+                            Pengaturan gagal disimpan
+                        </h3>
+
+                        <ul class="mt-2 list-inside list-disc space-y-1 text-sm text-red-700">
+                            @foreach ($errors->all() as $error)
+                                <li>{{ $error }}</li>
+                            @endforeach
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        @endif
+
+        @if (session('success'))
+            <div class="rounded-2xl border border-emerald-200 bg-emerald-50 p-5">
+                <div class="flex items-center gap-3">
+                    <x-heroicon-o-check-circle class="h-6 w-6 text-emerald-600" />
+
+                    <p class="font-semibold text-emerald-800">
+                        {{ session('success') }}
+                    </p>
+                </div>
+            </div>
+        @endif
+
+        <form
+            action="{{ route('admin.setting.update') }}"
+            method="POST"
+            enctype="multipart/form-data"
+            class="space-y-6"
+        >
+            @csrf
+            @method('PUT')
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-bold text-gray-800">
+                    Identitas Aplikasi
+                </h2>
+
+                <div class="grid grid-cols-1 gap-5 md:grid-cols-2">
+
+                    <div>
+                        <label for="app_name" class="{{ $labelClass }}">
+                            Nama Aplikasi
+                        </label>
+
+                        <input
+                            type="text"
+                            name="app_name"
+                            id="app_name"
+                            value="{{ old('app_name', $settings['app_name'] ?? 'Al Ishlah Pay') }}"
+                            class="{{ $inputClass }}"
+                            required
+                        >
+
+                        @error('app_name')
+                            <p class="mt-1 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="pondok_name" class="{{ $labelClass }}">
+                            Nama Pondok
+                        </label>
+
+                        <input
+                            type="text"
+                            name="pondok_name"
+                            id="pondok_name"
+                            value="{{ old('pondok_name', $settings['pondok_name'] ?? 'Ponpes Al Ishlah Jatireja - Subang') }}"
+                            class="{{ $inputClass }}"
+                            required
+                        >
+
+                        @error('pondok_name')
+                            <p class="mt-1 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="phone" class="{{ $labelClass }}">
+                            Nomor HP / Telepon
+                        </label>
+
+                        <input
+                            type="text"
+                            name="phone"
+                            id="phone"
+                            value="{{ old('phone', $settings['phone'] ?? '') }}"
+                            placeholder="Contoh: 08xxxxxxxxxx"
+                            class="{{ $inputClass }}"
+                        >
+
+                        @error('phone')
+                            <p class="mt-1 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div>
+                        <label for="email" class="{{ $labelClass }}">
+                            Email
+                        </label>
+
+                        <input
+                            type="email"
+                            name="email"
+                            id="email"
+                            value="{{ old('email', $settings['email'] ?? '') }}"
+                            placeholder="Contoh: admin@alishlahpay.test"
+                            class="{{ $inputClass }}"
+                        >
+
+                        @error('email')
+                            <p class="mt-1 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="address" class="{{ $labelClass }}">
+                            Alamat Pondok
+                        </label>
+
+                        <textarea
+                            name="address"
+                            id="address"
+                            rows="4"
+                            class="{{ $inputClass }}"
+                            placeholder="Masukkan alamat lengkap pondok"
+                        >{{ old('address', $settings['address'] ?? '') }}</textarea>
+
+                        @error('address')
+                            <p class="mt-1 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label for="footer_text" class="{{ $labelClass }}">
+                            Teks Footer
+                        </label>
+
+                        <input
+                            type="text"
+                            name="footer_text"
+                            id="footer_text"
+                            value="{{ old('footer_text', $settings['footer_text'] ?? '© Al Ishlah Pay') }}"
+                            class="{{ $inputClass }}"
+                        >
+
+                        @error('footer_text')
+                            <p class="mt-1 text-sm text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <h2 class="mb-5 text-lg font-bold text-gray-800">
+                    Logo dan Favicon
+                </h2>
+
+                <div class="grid grid-cols-1 gap-6 md:grid-cols-2">
+
+                    <div class="rounded-2xl border border-gray-200 p-5">
+                        <label for="logo" class="{{ $labelClass }}">
+                            Logo Aplikasi
+                        </label>
+
+                        <div class="mb-4 flex h-36 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
+                            <img
+                                src="{{ $logoUrl ?? '' }}"
+                                alt="Logo aplikasi"
+                                id="logo-preview"
+                                class="{{ $logoUrl ? '' : 'hidden' }} h-28 w-28 object-contain p-2"
+                                onerror="handleImageError(this, 'logo-placeholder')"
+                            >
+
+                            <div
+                                id="logo-placeholder"
+                                class="{{ $logoUrl ? 'hidden' : '' }} text-center text-gray-400"
+                            >
+                                <x-heroicon-o-photo class="mx-auto h-9 w-9" />
+
+                                <p class="mt-2 text-xs">
+                                    Belum ada logo
+                                </p>
+                            </div>
+                        </div>
+
+                        <input
+                            type="file"
+                            name="logo"
+                            id="logo"
+                            accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                            class="{{ $inputClass }}"
+                            onchange="previewImage(this, 'logo-preview', 'logo-placeholder')"
+                        >
+
+                        <p class="mt-2 text-xs text-gray-500">
+                            Format PNG, JPG, JPEG, atau WEBP. Maksimal 2 MB.
+                        </p>
+
+                        @if ($logo)
+                            <p class="mt-2 break-all text-xs text-emerald-700">
+                                File tersimpan:
+                                {{ \App\Helpers\AppSetting::normalizeStoragePath($logo) }}
+                            </p>
+
+                            <a
+                                href="{{ $logoUrl }}"
+                                target="_blank"
+                                class="mt-2 inline-flex text-xs font-semibold text-blue-600 hover:underline"
+                            >
+                                Buka file logo
+                            </a>
+                        @endif
+
+                        @error('logo')
+                            <p class="mt-2 text-sm font-medium text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+
+                    <div class="rounded-2xl border border-gray-200 p-5">
+                        <label for="favicon" class="{{ $labelClass }}">
+                            Favicon
+                        </label>
+
+                        <div class="mb-4 flex h-36 items-center justify-center overflow-hidden rounded-2xl border border-dashed border-gray-300 bg-gray-50">
+                            <img
+                                src="{{ $faviconUrl ?? '' }}"
+                                alt="Favicon aplikasi"
+                                id="favicon-preview"
+                                class="{{ $faviconUrl ? '' : 'hidden' }} h-20 w-20 object-contain p-2"
+                                onerror="handleImageError(this, 'favicon-placeholder')"
+                            >
+
+                            <div
+                                id="favicon-placeholder"
+                                class="{{ $faviconUrl ? 'hidden' : '' }} text-center text-gray-400"
+                            >
+                                <x-heroicon-o-globe-alt class="mx-auto h-9 w-9" />
+
+                                <p class="mt-2 text-xs">
+                                    Belum ada favicon
+                                </p>
+                            </div>
+                        </div>
+
+                        <input
+                            type="file"
+                            name="favicon"
+                            id="favicon"
+                            accept=".png,.jpg,.jpeg,.webp,.ico,image/png,image/jpeg,image/webp,image/x-icon"
+                            class="{{ $inputClass }}"
+                            onchange="previewImage(this, 'favicon-preview', 'favicon-placeholder')"
+                        >
+
+                        <p class="mt-2 text-xs text-gray-500">
+                            Format PNG, JPG, WEBP, atau ICO. Maksimal 1 MB.
+                        </p>
+
+                        @if ($favicon)
+                            <p class="mt-2 break-all text-xs text-emerald-700">
+                                File tersimpan:
+                                {{ \App\Helpers\AppSetting::normalizeStoragePath($favicon) }}
+                            </p>
+
+                            <a
+                                href="{{ $faviconUrl }}"
+                                target="_blank"
+                                class="mt-2 inline-flex text-xs font-semibold text-blue-600 hover:underline"
+                            >
+                                Buka file favicon
+                            </a>
+                        @endif
+
+                        @error('favicon')
+                            <p class="mt-2 text-sm font-medium text-red-600">
+                                {{ $message }}
+                            </p>
+                        @enderror
+                    </div>
+                </div>
+            </div>
+
+            <div class="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm">
+                <div class="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                    <a
+                        href="{{ route('admin.dashboard') }}"
+                        class="rounded-xl bg-gray-100 px-5 py-3 text-center font-semibold text-gray-700 transition hover:bg-gray-200"
+                    >
+                        Batal
+                    </a>
+
+                    <button
+                        type="submit"
+                        class="rounded-xl bg-emerald-700 px-5 py-3 font-semibold text-white transition hover:bg-emerald-800"
+                    >
+                        Simpan Pengaturan
+                    </button>
+                </div>
+            </div>
+        </form>
     </div>
 
-    <form action="{{ route('admin.setting.update') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
-        @csrf
-        @method('PUT')
+    <script>
+        function handleImageError(image, placeholderId) {
+            image.classList.add('hidden');
 
-        <div class="bg-white rounded-2xl shadow-sm border p-6">
-            <h2 class="text-lg font-bold text-gray-800 mb-5">Identitas Aplikasi</h2>
+            const placeholder = document.getElementById(placeholderId);
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
-                <div>
-                    <label class="{{ $labelClass }}">Nama Aplikasi</label>
-                    <input type="text"
-                           name="app_name"
-                           value="{{ old('app_name', $settings['app_name'] ?? 'Al Ishlah Pay') }}"
-                           class="{{ $inputClass }}">
-                    @error('app_name') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
+            if (placeholder) {
+                placeholder.classList.remove('hidden');
+            }
+        }
 
-                <div>
-                    <label class="{{ $labelClass }}">Nama Pondok</label>
-                    <input type="text"
-                           name="pondok_name"
-                           value="{{ old('pondok_name', $settings['pondok_name'] ?? 'Ponpes Al Ishlah Jatireja - Subang') }}"
-                           class="{{ $inputClass }}">
-                    @error('pondok_name') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
+        function previewImage(input, previewId, placeholderId) {
+            const file = input.files && input.files[0];
 
-                <div>
-                    <label class="{{ $labelClass }}">No HP / Telepon</label>
-                    <input type="text"
-                           name="phone"
-                           value="{{ old('phone', $settings['phone'] ?? '') }}"
-                           placeholder="Contoh: 08xxxxxxxxxx"
-                           class="{{ $inputClass }}">
-                    @error('phone') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
+            if (!file) {
+                return;
+            }
 
-                <div>
-                    <label class="{{ $labelClass }}">Email</label>
-                    <input type="email"
-                           name="email"
-                           value="{{ old('email', $settings['email'] ?? '') }}"
-                           placeholder="Contoh: admin@alishlahpay.test"
-                           class="{{ $inputClass }}">
-                    @error('email') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
+            const preview = document.getElementById(previewId);
+            const placeholder = document.getElementById(placeholderId);
 
-                <div class="md:col-span-2">
-                    <label class="{{ $labelClass }}">Alamat Pondok</label>
-                    <textarea name="address"
-                              rows="4"
-                              class="{{ $inputClass }}"
-                              placeholder="Alamat lengkap pondok">{{ old('address', $settings['address'] ?? '') }}</textarea>
-                    @error('address') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
+            const isFavicon = input.name === 'favicon';
 
-                <div class="md:col-span-2">
-                    <label class="{{ $labelClass }}">Teks Footer</label>
-                    <input type="text"
-                           name="footer_text"
-                           value="{{ old('footer_text', $settings['footer_text'] ?? '© Al Ishlah Pay') }}"
-                           class="{{ $inputClass }}">
-                    @error('footer_text') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
-            </div>
-        </div>
+            const allowedExtensions = isFavicon
+                ? ['png', 'jpg', 'jpeg', 'webp', 'ico']
+                : ['png', 'jpg', 'jpeg', 'webp'];
 
-        <div class="bg-white rounded-2xl shadow-sm border p-6">
-            <h2 class="text-lg font-bold text-gray-800 mb-5">Logo & Favicon</h2>
+            const extension = file.name
+                .split('.')
+                .pop()
+                .toLowerCase();
 
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div class="border rounded-2xl p-5">
-                    <label class="{{ $labelClass }}">Logo Aplikasi</label>
+            if (!allowedExtensions.includes(extension)) {
+                input.value = '';
 
-                    <div class="mb-4">
-                        @if ($logo)
-                            <img src="{{ asset('storage/' . $logo) }}"
-                                 alt="Logo"
-                                 class="w-24 h-24 object-contain rounded-xl border bg-gray-50 p-2">
-                        @else
-                            <div class="w-24 h-24 rounded-xl border bg-gray-50 flex items-center justify-center text-gray-400">
-                                Logo
-                            </div>
-                        @endif
-                    </div>
+                showUploadError(
+                    'Format file tidak didukung.',
+                    isFavicon
+                        ? 'Gunakan PNG, JPG, JPEG, WEBP, atau ICO.'
+                        : 'Gunakan PNG, JPG, JPEG, atau WEBP.'
+                );
 
-                    <input type="file"
-                           name="logo"
-                           accept="image/*"
-                           class="{{ $inputClass }}">
+                return;
+            }
 
-                    <p class="text-xs text-gray-500 mt-2">
-                        Format: PNG, JPG, JPEG, WEBP. Maksimal 2MB.
-                    </p>
+            const maximumSize = isFavicon
+                ? 1024 * 1024
+                : 2 * 1024 * 1024;
 
-                    @error('logo') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
+            if (file.size > maximumSize) {
+                input.value = '';
 
-                <div class="border rounded-2xl p-5">
-                    <label class="{{ $labelClass }}">Favicon</label>
+                showUploadError(
+                    'Ukuran file terlalu besar.',
+                    isFavicon
+                        ? 'Ukuran favicon maksimal 1 MB.'
+                        : 'Ukuran logo maksimal 2 MB.'
+                );
 
-                    <div class="mb-4">
-                        @if ($favicon)
-                            <img src="{{ asset('storage/' . $favicon) }}"
-                                 alt="Favicon"
-                                 class="w-16 h-16 object-contain rounded-xl border bg-gray-50 p-2">
-                        @else
-                            <div class="w-16 h-16 rounded-xl border bg-gray-50 flex items-center justify-center text-gray-400 text-xs">
-                                Icon
-                            </div>
-                        @endif
-                    </div>
+                return;
+            }
 
-                    <input type="file"
-                           name="favicon"
-                           accept="image/*,.ico"
-                           class="{{ $inputClass }}">
+            const reader = new FileReader();
 
-                    <p class="text-xs text-gray-500 mt-2">
-                        Disarankan ukuran 192x192 atau 512x512.
-                    </p>
+            reader.onload = function (event) {
+                preview.src = event.target.result;
+                preview.classList.remove('hidden');
 
-                    @error('favicon') <p class="text-sm text-red-600 mt-1">{{ $message }}</p> @enderror
-                </div>
-            </div>
-        </div>
+                if (placeholder) {
+                    placeholder.classList.add('hidden');
+                }
+            };
 
-        <div class="bg-white rounded-2xl shadow-sm border p-6">
-            <div class="flex justify-end gap-3">
-                <a href="{{ route('admin.dashboard') }}"
-                   class="px-5 py-3 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200">
-                    Batal
-                </a>
+            reader.readAsDataURL(file);
+        }
 
-                <button type="submit"
-                        class="px-5 py-3 rounded-xl bg-emerald-700 text-white hover:bg-emerald-800">
-                    Simpan Pengaturan
-                </button>
-            </div>
-        </div>
+        function showUploadError(title, text) {
+            if (window.Swal) {
+                window.Swal.fire({
+                    icon: 'error',
+                    title: title,
+                    text: text,
+                });
 
-    </form>
-</div>
+                return;
+            }
+
+            alert(title + '\n' + text);
+        }
+    </script>
 @endsection

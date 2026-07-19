@@ -1,13 +1,26 @@
 <aside class="w-72 bg-emerald-800 text-white flex flex-col shadow-xl">
 
     <div class="h-20 flex items-center px-6 border-b border-emerald-700">
-        <div class="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center overflow-hidden">
-            @if (\App\Helpers\AppSetting::logo())
-                <img src="{{ \App\Helpers\AppSetting::logo() }}" alt="Logo" class="w-full h-full object-contain p-1">
-            @else
-                <x-heroicon-o-building-library class="w-7 h-7 text-white" />
-            @endif
+@php
+    $sidebarLogo = \App\Helpers\AppSetting::logo();
+@endphp
+
+<div class="w-12 h-12 rounded-xl bg-white/15 flex items-center justify-center overflow-hidden">
+    @if ($sidebarLogo)
+        <img
+            src="{{ $sidebarLogo }}"
+            alt="Logo {{ \App\Helpers\AppSetting::appName() }}"
+            class="w-full h-full object-contain p-1"
+            onerror="this.style.display='none'; document.getElementById('default-sidebar-logo').style.display='block';"
+        >
+
+        <div id="default-sidebar-logo" style="display: none;">
+            <x-heroicon-o-building-library class="w-7 h-7 text-white" />
         </div>
+    @else
+        <x-heroicon-o-building-library class="w-7 h-7 text-white" />
+    @endif
+</div>
 
         <div class="ml-3">
             <h1 class="font-bold text-lg">

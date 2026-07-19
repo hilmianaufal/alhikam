@@ -4,6 +4,7 @@ namespace App\Helpers;
 
 use App\Models\Setting;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Storage;
 
 class AppSetting
 {
@@ -16,12 +17,15 @@ class AppSetting
 
     public static function appName(): string
     {
-        return self::get('app_name', 'Al Ishlah Pay');
+        return (string) self::get('app_name', 'Al Ishlah Pay');
     }
 
     public static function pondokName(): string
     {
-        return self::get('pondok_name', 'Ponpes Al Ishlah Jatireja - Subang');
+        return (string) self::get(
+            'pondok_name',
+            'Ponpes Al Ishlah Jatireja - Subang'
+        );
     }
 
     public static function address(): ?string
@@ -41,21 +45,55 @@ class AppSetting
 
     public static function footerText(): string
     {
-        return self::get('footer_text', '© Al Ishlah Pay');
+        return (string) self::get('footer_text', '© Al Ishlah Pay');
     }
 
     public static function logo(): ?string
     {
-        $logo = self::get('logo');
-
-        return $logo ? asset('storage/' . $logo) : null;
+        return self::storageUrl(self::get('logo'));
     }
 
     public static function favicon(): ?string
     {
-        $favicon = self::get('favicon');
+        return self::storageUrl(self::get('favicon'));
+    }
 
-        return $favicon ? asset('storage/' . $favicon) : null;
+    public static function storageUrl(?string $path): ?string
+    {
+        if (blank($path)) {
+            return null;
+        }
+
+        $path = self::normalizeStoragePath($path);
+
+        if (! Storage::disk('public')->exists($path)) {
+            return null;
+        }
+
+        $encodedPath = implode(
+            '/',
+            array_map('rawurlencode', explode('/', $path))
+        );
+
+        try {
+            $version = Storage::disk('public')->lastModified($path);
+
+            return '/storage/' . $encodedPath . '?v=' . $version;
+        } catch (\Throwable) {
+            return '/storage/' . $encodedPath;
+        }
+    }
+
+    public static function normalizeStoragePath(string $path): string
+    {
+        $path = str_replace('\\', '/', trim($path));
+        $path = ltrim($path, '/');
+
+        while (str_starts_with($path, 'storage/')) {
+            $path = substr($path, strlen('storage/'));
+        }
+
+        return $path;
     }
 
     public static function clearCache(): void
