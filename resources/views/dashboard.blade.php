@@ -6,9 +6,9 @@
 <div class="space-y-6">
 
     <div class="bg-gradient-to-r from-emerald-800 to-emerald-600 rounded-2xl p-6 text-white shadow-sm">
-        <h1 class="text-2xl font-bold">Dashboard Al Ishlah Pay</h1>
+        <h1 class="text-2xl font-bold">Dashboard</h1>
         <p class="text-emerald-100 mt-1">
-            Ringkasan keuangan dan tagihan Pondok Pesantren Al Ishlah.
+            Ringkasan keuangan dan tagihan {{ \App\Helpers\AppSetting::pondokName() }}
         </p>
     </div>
 

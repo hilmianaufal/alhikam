@@ -48,6 +48,24 @@ class SettingController extends Controller
                 'max:50',
             ],
 
+            'signature_city' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
+            'signature_name' => [
+                'nullable',
+                'string',
+                'max:150',
+            ],
+
+            'signature_position' => [
+                'nullable',
+                'string',
+                'max:100',
+            ],
+
             'email' => [
                 'nullable',
                 'email',
@@ -82,6 +100,9 @@ class SettingController extends Controller
             Setting::setValue('address', $validated['address'] ?? null);
             Setting::setValue('phone', $validated['phone'] ?? null);
             Setting::setValue('email', $validated['email'] ?? null);
+            Setting::setValue('signature_city', $validated['signature_city'] ?? null);
+            Setting::setValue('signature_name', $validated['signature_name'] ?? null);
+            Setting::setValue('signature_position', $validated['signature_position'] ?? null);
             Setting::setValue('footer_text', $validated['footer_text'] ?? null);
 
             if ($request->hasFile('logo')) {
